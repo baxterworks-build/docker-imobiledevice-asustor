@@ -1,0 +1,26 @@
+THIS IS BROKEN - static builds aren't really supported by libimobiledevice.
+FROM alpine
+ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig/:/usr/lib/pkgconfig/"
+ENV LDFLAGS=-static
+ENV CFLAGS="-no-pie --static -I/opt/include/ -I/usr/include"
+ENV AUTOGEN_COMMAND="./autogen.sh --prefix=/opt/ --without-cython  --disable-shared --enable-static"
+ENV CONFIGURE_COMMAND="./configure --prefix=/opt/ --enable-shared=no --enable-static --without-cython"
+RUN apk update && apk add alpine-sdk curl openssl-dev pkgconfig openssl-libs-static git libtool autoconf automake linux-headers
+RUN mkdir /src
+WORKDIR /src
+
+RUN curl -L https://github.com/libusb/libusb/releases/download/v1.0.24/libusb-1.0.24.tar.bz2 | tar -jxf -
+WORKDIR /src/libusb-1.0.24
+RUN ./configure --prefix=/opt --enable-static --disable-shared --disable-udev && make -j`nproc` && make install
+
+WORKDIR /src
+RUN for i in libplist libusbmuxd libimobiledevice usbmuxd; \ 
+	do \ 
+		git clone --depth=1 https://github.com/libimobiledevice/$i; \
+		cd /src/$i && \ 
+		$AUTOGEN_COMMAND && $CONFIGURE_COMMAND && \ 
+		make -j`nproc` install && cd /src; \ 
+	done
+
+
+
